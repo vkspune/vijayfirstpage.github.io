@@ -107,13 +107,12 @@
 
               createOrder: function () {
                 return paypalCheckoutInstance.createPayment({
-                  flow: 'checkout',        // Required
+                  flow: 'ecs',        // Required
                   amount: Number(amount),  // Required
                   currency: 'USD',         // Must match loadPayPalSDK
                   intent: 'capture',       // Must match loadPayPalSDK
-
                   // From your snippet
-                  userAction: 'commit',
+                  userAction: 'COMMIT',
                   noShipping: false,
 
                   // App Switch specific options (from your snippet)
