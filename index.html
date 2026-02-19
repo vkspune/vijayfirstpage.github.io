@@ -1,33 +1,195 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pay with PayPal</title>
-  <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
+  <meta charset="utf-8" />
+  <title>PayPal App Switch (Braintree v3)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Match your source snippet versions -->
+  <script src="https://js.braintreegateway.com/web/3.76.0/js/client.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.76.0/js/paypal-checkout.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.76.0/js/data-collector.min.js"></script>
+
   <style>
-    body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    #paypal-button-container { margin-top: 20px; }
+    body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif; padding: 24px; }
+    #paypal-button-container { margin-top: 16px; }
+    pre { background:#f5f5f5; padding:12px; border-radius:6px; white-space:pre-wrap; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    input { padding:6px 8px; }
+    button { padding:8px 12px; cursor:pointer; }
   </style>
 </head>
+
 <body>
-  <h2>Pay with PayPal</h2>
+  <h1>PayPal App Switch — Test Page</h1>
+
+  <div class="row">
+    <label>Amount (USD):
+      <input id="amount" value="10.00" style="width:100px" />
+    </label>
+    <button id="render">Render PayPal Button</button>
+  </div>
+
   <div id="paypal-button-container"></div>
+
+  <h3>Logs</h3>
+  <pre id="log"></pre>
+
   <script>
-    paypal.Buttons({
-      createOrder: function(data, actions) {
-        return actions.order.create({
-          purchase_units: [{
-            amount: { value: '10.00' }
-          }]
+    // ======= Metadata pulled from your snippet =======
+    // NOTE: For real use, fetch this from your server (recommended).
+    let clientToken = "eyJ2ZXJzaW9uIjoyLCJhdXRob3JpemF0aW9uRmluZ2VycHJpbnQiOiJleUpyYVdRaU9pSXlNREU0TURReU5qRTJMWE5oYm1SaWIzZ2lMQ0pwYzNNaU9pSm9kSFJ3Y3pvdkwyRndhUzV6WVc1a1ltOTRMbUp5WVdsdWRISmxaV2RoZEdWM1lYa3VZMjl0SWl3aVlXeG5Jam9pUlZNeU5UWWlmUS5leUpsZUhBaU9qRTNOekUxTkRNNU5EWXNJbXAwYVNJNklqUTBZVFV6TTJFeExUUXpNR1V0TkRabU1DMWhaRGswTFRrek9EQmxObVJqWTJFeE1DSXNJbk4xWWlJNkltUnJNelZ5YW1keGNHSjJZbkJ0Y1hJaUxDSnBjM01pT2lKb2RIUndjem92TDJGd2FTNXpZVzVrWW05NExtSnlZV2x1ZEhKbFpXZGhkR1YzWVhrdVkyOXRJaXdpYldWeVkyaGhiblFpT25zaWNIVmliR2xqWDJsa0lqb2laR3N6TlhKcVozRndZblppY0cxeGNpSXNJblpsY21sbWVWOWpZWEprWDJKNVgyUmxabUYxYkhRaU9uUnlkV1VzSW5abGNtbG1lVjkzWVd4c1pYUmZZbmxmWkdWbVlYVnNkQ0k2Wm1Gc2MyVjlMQ0p5YVdkb2RITWlPbHNpYldGdVlXZGxYM1poZFd4MElsMHNJbk5qYjNCbElqcGJJa0p5WVdsdWRISmxaVHBXWVhWc2RDSXNJa0p5WVdsdWRISmxaVHBEYkdsbGJuUlRSRXNpTENKQ2NtRnBiblJ5WldVNlFWaFBJbDBzSW05d2RHbHZibk1pT25zaWNHRjVjR0ZzWDJOc2FXVnVkRjlwWkNJNklrRmljbUk0ZUVsemQycFFSbEJ6TTA5bFRqbHliRGN5VTBka1ozVlNaWE5rU1VjNVpYbFhlVWxGVVRWRk5sTjNSWEZvWmpNdFpuVXpNbWhWTjBKNGRGSk9ibUV3WjFOclluWXhMWGxJTldWM0luMTkuLXpnZU9IN3EyWkd4dFR2d1Z5X0x0UlFfVklMeXZXekx6VjQybUhIVTRnc0NvRVFMblhXOFdxTV9qUEZyaU40X295TUZ4RW53UTQza3hNWE9URzRZT1EiLCJjb25maWdVcmwiOiJodHRwczovL2FwaS5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tOjQ0My9tZXJjaGFudHMvZGszNXJqZ3FwYnZicG1xci9jbGllbnRfYXBpL3YxL2NvbmZpZ3VyYXRpb24iLCJncmFwaFFMIjp7InVybCI6Imh0dHBzOi8vcGF5bWVudHMuc2FuZGJveC5icmFpbnRyZWUtYXBpLmNvbS9ncmFwaHFsIiwiZGF0ZSI6IjIwMTgtMDUtMDgiLCJmZWF0dXJlcyI6WyJ0b2tlbml6ZV9jcmVkaXRfY2FyZHMiXX0sImNsaWVudEFwaVVybCI6Imh0dHBzOi8vYXBpLnNhbmRib3guYnJhaW50cmVlZ2F0ZXdheS5jb206NDQzL21lcmNoYW50cy9kazM1cmpncXBidmJwbXFyL2NsaWVudF9hcGkiLCJlbnZpcm9ubWVudCI6InNhbmRib3giLCJtZXJjaGFudElkIjoiZGszNXJqZ3FwYnZicG1xciIsImFzc2V0c1VybCI6Imh0dHBzOi8vYXNzZXRzLmJyYWludHJlZWdhdGV3YXkuY29tIiwiYXV0aFVybCI6Imh0dHBzOi8vYXV0aC52ZW5tby5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tIiwidmVubW8iOiJvZmYiLCJjaGFsbGVuZ2VzIjpbImN2diIsInBvc3RhbF9jb2RlIl0sInRocmVlRFNlY3VyZUVuYWJsZWQiOnRydWUsImFuYWx5dGljcyI6eyJ1cmwiOiJodHRwczovL29yaWdpbi1hbmFseXRpY3Mtc2FuZC5zYW5kYm94LmJyYWludHJlZS1hcGkuY29tL2RrMzVyamdxcGJ2YnBtcXIifSwicGF5cGFsRW5hYmxlZCI6dHJ1ZSwiYnJhaW50cmVlX2FwaSI6eyJ1cmwiOiJodHRwczovL3BheW1lbnRzLnNhbmRib3guYnJhaW50cmVlLWFwaS5jb20iLCJhY2Nlc3NfdG9rZW4iOiJleUpyYVdRaU9pSXlNREU0TURReU5qRTJMWE5oYm1SaWIzZ2lMQ0pwYzNNaU9pSm9kSFJ3Y3pvdkwyRndhUzV6WVc1a1ltOTRMbUp5WVdsdWRISmxaV2RoZEdWM1lYa3VZMjl0SWl3aVlXeG5Jam9pUlZNeU5UWWlmUS5leUpsZUhBaU9qRTNOekUxTkRNNU5EWXNJbXAwYVNJNklqY3hOakZsWWpBekxUVmpOVGt0TkRObVpTMDVNamRqTFdZM1pqVXpOMkZrWldRNU55SXNJbk4xWWlJNkltUnJNelZ5YW1keGNHSjJZbkJ0Y1hJaUxDSnBjM01pT2lKb2RIUndjem92TDJGd2FTNXpZVzVrWW05NExtSnlZV2x1ZEhKbFpXZGhkR1YzWVhrdVkyOXRJaXdpYldWeVkyaGhiblFpT25zaWNIVmliR2xqWDJsa0lqb2laR3N6TlhKcVozRndZblppY0cxeGNpSXNJblpsY21sbWVWOWpZWEprWDJKNVgyUmxabUYxYkhRaU9uUnlkV1VzSW5abGNtbG1lVjkzWVd4c1pYUmZZbmxmWkdWbVlYVnNkQ0k2Wm1Gc2MyVjlMQ0p5YVdkb2RITWlPbHNpZEc5clpXNXBlbVVpTENKdFlXNWhaMlZmZG1GMWJIUWlYU3dpYzJOdmNHVWlPbHNpUW5KaGFXNTBjbVZsT2xaaGRXeDBJaXdpUW5KaGFXNTBjbVZsT2tOc2FXVnVkRk5FU3lJc0lrSnlZV2x1ZEhKbFpUcEJXRThpWFN3aWIzQjBhVzl1Y3lJNmUzMTkub2xDMmRYMUxQdkhVOHplUWJMbDFOTXVSWGlEUWx3VlJlZm8zaFlVdUhpMk9QdXZwamR2bWlicmdKUjJGWXNsRzR2NW1mSU9rTm5jdDEwcUFjM01IV3cifSwicGF5cGFsIjp7ImJpbGxpbmdBZ3JlZW1lbnRzRW5hYmxlZCI6dHJ1ZSwiZW52aXJvbm1lbnROb05ldHdvcmsiOmZhbHNlLCJ1bnZldHRlZE1lcmNoYW50IjpmYWxzZSwiYWxsb3dIdHRwIjp0cnVlLCJkaXNwbGF5TmFtZSI6IlBheVBhbCIsImNsaWVudElkIjoiQWJyYjh4SXN3alBGUHMzT2VOOXJsNzJTR2RndVJlc2RJRzlleVd5SUVRNUU2U3dFcWhmMy1mdTMyaFU3Qnh0Uk5uYTBnU2tidjEteUg1ZXciLCJiYXNlVXJsIjoiaHR0cHM6Ly9hc3NldHMuYnJhaW50cmVlZ2F0ZXdheS5jb20iLCJhc3NldHNVcmwiOiJodHRwczovL2NoZWNrb3V0LnBheXBhbC5jb20iLCJkaXJlY3RCYXNlVXJsIjpudWxsLCJlbnZpcm9ubWVudCI6Im9mZmxpbmUiLCJicmFpbnRyZWVDbGllbnRJZCI6Im1hc3RlcmNsaWVudDMiLCJtZXJjaGFudEFjY291bnRJZCI6Ik1lcmNoYW50X1VTQV8zIiwiY3VycmVuY3lJc29Db2RlIjoiVVNEIn19";
+    // =================================================
+
+    // App switch return/cancel from your snippet (kept the same)
+    const RETURN_URL = 'sarina-neglectful-unruly.ngrok-free.dev/braintree/return';
+    const CANCEL_URL = 'sarina-neglectful-unruly.ngrok-free.dev/braintree/cancel';
+
+    // Device data from data collector
+    let deviceData = "";
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.textContent = (new Date().toISOString() + "  " + msg + "\n") + el.textContent;
+      console.log(msg);
+    }
+
+    function clearButtons() {
+      document.getElementById('paypal-button-container').innerHTML = '';
+    }
+
+    function renderPayPalButton(amount) {
+      log("ClientToken (placeholder) loaded; creating Braintree client...");
+
+      braintree.client.create({ authorization: clientToken }, function (clientErr, clientInstance) {
+        if (clientErr) {
+          console.error('Error creating client:', clientErr);
+          log("Error creating Braintree client: " + clientErr);
+          return;
+        }
+
+        // Data collector (fraud / device data)
+        braintree.dataCollector.create({
+          client: clientInstance,
+          paypal: true
+        }, function (dataCollectorErr, dataCollectorInstance) {
+          if (dataCollectorErr) {
+            log("DataCollector error: " + dataCollectorErr);
+            return;
+          }
+          deviceData = dataCollectorInstance.deviceData || "";
+          log("Got device data");
         });
-      },
-      onApprove: function(data, actions) {
-        return actions.order.capture().then(function(details) {
-          alert('Transaction completed by ' + details.payer.name.given_name + '!');
+
+        // PayPal Checkout component
+        braintree.paypalCheckout.create({ client: clientInstance }, function (paypalCheckoutErr, paypalCheckoutInstance) {
+          if (paypalCheckoutErr) {
+            log("paypalCheckout create error: " + paypalCheckoutErr);
+            return;
+          }
+
+          // Load PayPal JS SDK via Braintree integration
+          paypalCheckoutInstance.loadPayPalSDK({
+            currency: 'USD',   // Must match createPayment currency
+            intent: 'capture'  // Must match createPayment intent
+            // commit: true     // uncomment if you want Pay Now flow (per your comment)
+          }, function (loadErr) {
+            if (loadErr) {
+              log("loadPayPalSDK error: " + loadErr);
+              return;
+            }
+
+            log("PayPal SDK loaded; creating Buttons() with app switch...");
+
+            const buttons = paypal.Buttons({
+              fundingSource: paypal.FUNDING.PAYPAL,
+              appSwitchWhenAvailable: true, // trigger app switch when possible
+
+              createOrder: function () {
+                return paypalCheckoutInstance.createPayment({
+                  flow: 'checkout',        // Required
+                  amount: Number(amount),  // Required
+                  currency: 'USD',         // Must match loadPayPalSDK
+                  intent: 'capture',       // Must match loadPayPalSDK
+
+                  // From your snippet
+                  userAction: 'commit',
+                  noShipping: false,
+
+                  // App Switch specific options (from your snippet)
+                  returnUrl: RETURN_URL,
+                  cancelUrl: CANCEL_URL
+                });
+              },
+
+              onApprove: function (data, actions) {
+                log("Approved; tokenizing payment...");
+                return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+                  if (err) {
+                    log("tokenizePayment error: " + err);
+                    return;
+                  }
+
+                  log("Got nonce: " + payload.nonce);
+                  log("DeviceData length: " + (deviceData ? deviceData.length : 0));
+
+                  // OPTION A (matches your snippet behavior): POST to a server endpoint instead of submitting a PHP form
+                  // Replace '/checkout' with your backend handler (Node/PHP/etc).
+                  fetch('/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentMethodNonce: payload.nonce,
+                      amount: String(amount),
+                      deviceData: deviceData
+                    })
+                  })
+                  .then(async (res) => {
+                    const body = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      log("Server error: " + JSON.stringify(body));
+                      return;
+                    }
+                    log("Server success: " + JSON.stringify(body));
+                    alert("Success! " + JSON.stringify(body));
+                  })
+                  .catch((e) => log("Network error: " + e));
+                });
+              },
+
+              onCancel: function (data) {
+                log("Cancelled: " + JSON.stringify(data));
+              },
+
+              onError: function (err) {
+                console.error('PayPal error', err);
+                log("PayPal error: " + err);
+              }
+            });
+
+            // Resume logic from your snippet
+            if (buttons.hasReturned && buttons.hasReturned()) {
+              log("Buttons hasReturned() => resuming...");
+              buttons.resume();
+            } else {
+              log("Rendering buttons...");
+              buttons.render('#paypal-button-container');
+            }
+          });
         });
-      }
-    }).render('#paypal-button-container');
+      });
+    }
+
+    document.getElementById('render').addEventListener('click', function () {
+      const amount = document.getElementById('amount').value || '10.00';
+      clearButtons();
+      renderPayPalButton(amount);
+    });
+
+    // Auto-render on load
+    window.addEventListener('load', function () {
+      document.getElementById('render').click();
+    });
   </script>
 </body>
 </html>
